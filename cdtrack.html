@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Win95 Audio Tempo Shifter (MP3 Edition)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.all.min.js"></script>
+    <style>
+        /* Стили в духе старой доброй Windows 95 */
+        :root {
+            --win-bg: #008080; /* Тот самый бирюзовый фон */
+            --face: #c0c0c0;
+            --shadow: #808080;
+            --highlight: #ffffff;
+            --dark-shadow: #0a0a0a;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: "MS Sans Serif", "Tahoma", Arial, sans-serif;
+            font-size: 12px;
+            image-rendering: pixelated;
+        }
+
+        body {
+            background-color: var(--win-bg);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* Главное окно приложения */
+        .window {
+            background: var(--face);
+            border-top: 2px solid var(--highlight);
+            border-left: 2px solid var(--highlight);
+            border-right: 2px solid var(--dark-shadow);
+            border-bottom: 2px solid var(--dark-shadow);
+            box-shadow: 1px 1px 0 0 var(--shadow) inset, -1px -1px 0 0 var(--shadow) inset;
+            width: 380px;
+            padding: 3px;
+        }
+
+        /* Заголовок окна */
+        .title-bar {
+            background: linear-gradient(90deg, #000080, #1080d0);
+            color: white;
+            padding: 3px 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+        }
+
+        .title-bar-text {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .title-bar-controls button {
+            width: 16px;
+            height: 14px;
+            background: var(--face);
+            border-top: 1px solid var(--highlight);
+            border-left: 1px solid var(--highlight);
+            border-right: 1px solid var(--dark-shadow);
+            border-bottom: 1px solid var(--dark-shadow);
+            font-weight: bold;
+            font-size: 9px;
+            cursor: pointer;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0;
+        }
+
+        .title-bar-controls button:active {
+            border-top: 1px solid var(--dark-shadow);
+            border-left: 1px solid var(--dark-shadow);
+            border-right: 1px solid var(--highlight);
+            border-bottom: 1px solid var(--highlight);
+        }
+
+        /* Контент внутри окна */
+        .window-body {
+            padding: 10px;
+        }
+
+        /* Дисплей плеера */
+        .display {
+            background: #000;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            padding: 10px;
+            border-top: 2px solid var(--shadow);
+            border-left: 2px solid var(--shadow);
+            border-right: 2px solid var(--highlight);
+            border-bottom: 2px solid var(--highlight);
+            margin-bottom: 15px;
+            text-shadow: 0 0 4px #00ff00;
+        }
+
+        .status {
+            font-size: 14px;
+            margin-bottom: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .time {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        /* Панели управления (Группы) */
+        .field-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        label {
+            min-width: 60px;
+        }
+
+        /* Винтажные кнопки */
+        button.win-btn {
+            background: var(--face);
+            border-top: 2px solid var(--highlight);
+            border-left: 2px solid var(--highlight);
+            border-right: 2px solid var(--dark-shadow);
+            border-bottom: 2px solid var(--dark-shadow);
+            padding: 6px 12px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        button.win-btn:active:not(:disabled) {
+            border-top: 2px solid var(--dark-shadow);
+            border-left: 2px solid var(--dark-shadow);
+            border-right: 2px solid var(--highlight);
+            border-bottom: 2px solid var(--highlight);
+            padding: 7px 11px 5px 13px;
+        }
+
+        button.win-btn:disabled {
+            color: var(--shadow);
+            cursor: not-allowed;
+        }
+
+        /* Кастомный инпут для файла под ретро-кнопку */
+        .file-upload {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .file-upload input[type=file] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+            height: 100%;
+            width: 100%;
+        }
+
+        /* Ползунки (Слайдеры) в стиле Win95 */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type=range]:focus {
+            outline: none;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            background: var(--shadow);
+            border-bottom: 1px solid var(--highlight);
+            border-right: 1px solid var(--highlight);
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            height: 18px;
+            width: 10px;
+            background: var(--face);
+            border-top: 1px solid var(--highlight);
+            border-left: 1px solid var(--highlight);
+            border-right: 2px solid var(--dark-shadow);
+            border-bottom: 2px solid var(--dark-shadow);
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -7px;
+        }
+
+        input[type=range]:active::-webkit-slider-thumb {
+            border-top: 1px solid var(--dark-shadow);
+            border-left: 1px solid var(--dark-shadow);
+            border-right: 1px solid var(--highlight);
+            border-bottom: 1px solid var(--highlight);
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .save-section {
+            border-top: 1px solid var(--shadow);
+            padding-top: 10px;
+            margin-top: 10px;
+            display: flex;
+            justify-content: flex-end;
+        }
+    </style>
+</head>
+<body>
+
+<div class="window">
+    <div class="title-bar">
+        <div class="title-bar-text">
+            <span>💿 CD-Track.exe</span>
+        </div>
+        <div class="title-bar-controls">
+            <button aria-label="Minimize">_</button>
+            <button aria-label="Maximize">🗖</button>
+            <button aria-label="Close">X</button>
+        </div>
+    </div>
+
+    <div class="window-body">
+        <div class="display">
+            <div class="status" id="track-name">NO DISC INSERTED</div>
+            <div class="time" id="time-display">00:00 / 00:00</div>
+        </div>
+
+        <div class="controls-grid">
+            <div class="file-upload">
+                <button class="win-btn" style="width: 100%;">📂 Open File...</button>
+                <input type="file" id="audio-file" accept="audio/*">
+            </div>
+            <button class="win-btn" id="play-btn" disabled>▶ Play</button>
+        </div>
+
+        <div class="field-row">
+            <label for="speed-slider">Speed:</label>
+            <input type="range" id="speed-slider" min="0.5" max="2.0" step="0.01" value="1.0">
+            <span id="speed-val" style="min-width: 45px; text-align: right;">1.00x</span>
+        </div>
+
+        <div class="field-row">
+            <label>Position:</label>
+            <input type="range" id="progress-slider" min="0" value="0" step="1" disabled>
+        </div>
+
+        <div class="save-section">
+            <button class="win-btn" id="save-btn" disabled>💾 Save Modified MP3 (192k)</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let audioCtx = null;
+    let audioBuffer = null;
+    let sourceNode = null;
+    
+    let isPlaying = false;
+    let startTime = 0;       
+    let r_offset = 0;        
+    let currentPlaybackRate = 1.0;
+    let originalFileName = "track"; // Переменная для хранения оригинального названия файла
+
+    const fileInput = document.getElementById('audio-file');
+    const playBtn = document.getElementById('play-btn');
+    const saveBtn = document.getElementById('save-btn');
+    const speedSlider = document.getElementById('speed-slider');
+    const speedVal = document.getElementById('speed-val');
+    const progressSlider = document.getElementById('progress-slider');
+    const trackName = document.getElementById('track-name');
+    const timeDisplay = document.getElementById('time-display');
+
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Отсекаем старое расширение файла, чтобы не плодить конструкции вида "song.mp3.mp3"
+        originalFileName = file.name.replace(/\.[^/.]+$/, "");
+
+        trackName.textContent = file.name.toUpperCase();
+        playBtn.disabled = true;
+        saveBtn.disabled = true;
+
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            audioCtx.decodeAudioData(event.target.result, function(buffer) {
+                audioBuffer = buffer;
+                playBtn.disabled = false;
+                saveBtn.disabled = false;
+                progressSlider.disabled = false;
+                progressSlider.max = Math.floor(audioBuffer.duration);
+                progressSlider.value = 0;
+                r_offset = 0;
+                updateTimeDisplay();
+                if (isPlaying) stopTrack();
+            }, function(err) {
+                trackName.textContent = "ERROR LOADING AUDIO";
+                console.error(err);
+            });
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    speedSlider.addEventListener('input', function() {
+        currentPlaybackRate = parseFloat(this.value);
+        speedVal.textContent = currentPlaybackRate.toFixed(2) + 'x';
+        
+        if (isPlaying && sourceNode) {
+            const elapsed = audioCtx.currentTime - startTime;
+            r_offset += elapsed * sourceNode.playbackRate.value;
+            startTime = audioCtx.currentTime;
+            sourceNode.playbackRate.setValueAtTime(currentPlaybackRate, audioCtx.currentTime);
+        }
+    });
+
+    playBtn.addEventListener('click', function() {
+        if (!audioBuffer) return;
+        if (isPlaying) pauseTrack(); else playTrack();
+    });
+
+    function playTrack() {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        sourceNode = audioCtx.createBufferSource();
+        sourceNode.buffer = audioBuffer;
+        sourceNode.playbackRate.setValueAtTime(currentPlaybackRate, audioCtx.currentTime);
+        sourceNode.connect(audioCtx.destination);
+
+        sourceNode.start(0, r_offset);
+        startTime = audioCtx.currentTime;
+        isPlaying = true;
+        playBtn.textContent = "⏸ Pause";
+        requestAnimationFrame(updateProgress);
+    }
+
+    function pauseTrack() {
+        if (!sourceNode) return;
+        const elapsed = audioCtx.currentTime - startTime;
+        r_offset += elapsed * currentPlaybackRate;
+        sourceNode.stop();
+        sourceNode = null;
+        isPlaying = false;
+        playBtn.textContent = "▶ Play";
+    }
+
+    function stopTrack() {
+        if (sourceNode) { sourceNode.stop(); sourceNode = null; }
+        isPlaying = false;
+        r_offset = 0;
+        progressSlider.value = 0;
+        playBtn.textContent = "▶ Play";
+        updateTimeDisplay();
+    }
+
+    progressSlider.addEventListener('input', function() {
+        r_offset = parseFloat(this.value);
+        updateTimeDisplay();
+        if (isPlaying) {
+            if (sourceNode) sourceNode.stop();
+            playTrack();
+        }
+    });
+
+    function updateProgress() {
+        if (!isPlaying) return;
+        const elapsed = audioCtx.currentTime - startTime;
+        const currentPos = r_offset + (elapsed * currentPlaybackRate);
+
+        if (currentPos >= audioBuffer.duration) {
+            stopTrack();
+            return;
+        }
+
+        progressSlider.value = Math.floor(currentPos);
+        updateTimeDisplay(currentPos);
+        requestAnimationFrame(updateProgress);
+    }
+
+    function updateTimeDisplay(pos = r_offset) {
+        if (!audioBuffer) return;
+        timeDisplay.textContent = formatTime(pos) + " / " + formatTime(audioBuffer.duration);
+    }
+
+    function formatTime(seconds) {
+        const min = Math.floor(seconds / 60);
+        const sec = Math.floor(seconds % 60);
+        return (min < 10 ? "0" : "") + min + ":" + (sec < 10 ? "0" : "") + sec;
+    }
+
+    /* ==========================================================
+       ЭКСПОРТ И КОДИРОВАНИЕ В MP3 С СОХРАНЕНИЕМ НАЗВАНИЯ ТРЕКА
+       ========================================================== */
+    saveBtn.addEventListener('click', function() {
+        if (!audioBuffer) return;
+
+        trackName.textContent = "RENDERING AUDIO...";
+        saveBtn.disabled = true;
+
+        const originalRate = audioBuffer.sampleRate;
+        const duration = audioBuffer.duration / currentPlaybackRate;
+        const length = Math.floor(duration * originalRate);
+
+        const offlineCtx = new OfflineAudioContext(
+            audioBuffer.numberOfChannels,
+            length,
+            originalRate
+        );
+
+        const offlineSource = offlineCtx.createBufferSource();
+        offlineSource.buffer = audioBuffer;
+        offlineSource.playbackRate.setValueAtTime(currentPlaybackRate, 0);
+        offlineSource.connect(offlineCtx.destination);
+        offlineSource.start(0);
+
+        offlineCtx.startRendering().then(function(renderedBuffer) {
+            trackName.textContent = "ENCODING TO MP3 (192kbps)...";
+            
+            setTimeout(() => {
+                encodeMP3(renderedBuffer, 192);
+            }, 50);
+
+        }).catch(function(err) {
+            console.error(err);
+            trackName.textContent = "RENDER ERROR";
+            saveBtn.disabled = false;
+        });
+    });
+
+    function encodeMP3(audioBuffer, bitrate) {
+        const channels = audioBuffer.numberOfChannels;
+        const sampleRate = audioBuffer.sampleRate;
+        
+        const mp3encoder = new lamejs.Mp3Encoder(channels, sampleRate, bitrate);
+        const mp3Data = [];
+
+        let leftSamples, rightSamples;
+        if (channels === 2) {
+            leftSamples = floatToShortPCM(audioBuffer.getChannelData(0));
+            rightSamples = floatToShortPCM(audioBuffer.getChannelData(1));
+        } else {
+            leftSamples = floatToShortPCM(audioBuffer.getChannelData(0));
+            rightSamples = leftSamples;
+        }
+
+        const sampleBlockSize = 1152;
+        
+        for (let i = 0; i < leftSamples.length; i += sampleBlockSize) {
+            const leftChunk = leftSamples.subarray(i, i + sampleBlockSize);
+            const rightChunk = channels === 2 ? rightSamples.subarray(i, i + sampleBlockSize) : null;
+            
+            let mp3buf;
+            if (channels === 2) {
+                mp3buf = mp3encoder.encodeBuffer(leftChunk, rightChunk);
+            } else {
+                mp3buf = mp3encoder.encodeBuffer(leftChunk);
+            }
+            
+            if (mp3buf.length > 0) {
+                mp3Data.push(new Uint8Array(mp3buf));
+            }
+        }
+
+        const endBuf = mp3encoder.flush();
+        if (endBuf.length > 0) {
+            mp3Data.push(new Uint8Array(endBuf));
+        }
+
+        const blob = new Blob(mp3Data, { type: 'audio/mp3' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        
+        // Определяем красивый суффикс в зависимости от того, замедлили трек или ускорили
+        let suffix = " [Modified]";
+        if (currentPlaybackRate < 1.0) {
+            suffix = " [Slowed]";
+        } else if (currentPlaybackRate > 1.0) {
+            suffix = " [Speeded]";
+        }
+
+        // Скачиваем с оригинальным названием трека
+        a.download = originalFileName + suffix + ".mp3";
+        a.click();
+
+        trackName.textContent = fileInput.files[0].name.toUpperCase();
+        saveBtn.disabled = false;
+    }
+
+    function floatToShortPCM(float32Array) {
+        const int16Array = new Int16Array(float32Array.length);
+        for (let i = 0; i < float32Array.length; i++) {
+            let s = Math.max(-1, Math.min(1, float32Array[i]));
+            int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+        }
+        return int16Array;
+    }
+</script>
+
+</body>
+</html>
