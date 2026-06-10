@@ -3,113 +3,197 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Win95 Audio Tempo Shifter (MP3 Edition)</title>
+    <title>Win95 Audio Tempo Shifter (Evangelion MAGI Terminal)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.all.min.js"></script>
     <style>
-        /* Стили в духе старой доброй Windows 95 */
         :root {
-            --win-bg: #008080; /* Тот самый бирюзовый фон */
-            --face: #c0c0c0;
+            --win-bg: #1a0e08; 
+            --eva-orange: #ff6600;
+            --eva-light-orange: #ffaa66;
+            --face: #d4d0c8;
             --shadow: #808080;
             --highlight: #ffffff;
-            --dark-shadow: #0a0a0a;
+            --dark-shadow: #404040;
         }
 
-        * {
+        *, *::before, *::after {
             box-sizing: border-box;
             font-family: "MS Sans Serif", "Tahoma", Arial, sans-serif;
             font-size: 12px;
-            image-rendering: pixelated;
         }
 
         body {
             background-color: var(--win-bg);
+            background-image: 
+                linear-gradient(rgba(255, 102, 0, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 102, 0, 0.03) 1px, transparent 1px);
+            background-size: 25px 25px;
             margin: 0;
-            padding: 20px;
+            padding: 0;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
+            position: relative;
+            overflow: hidden;
         }
 
-        /* Главное окно приложения */
+        /* CRT линии */
+        body::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.12) 50%);
+            z-index: 99999;
+            background-size: 100% 4px;
+            pointer-events: none;
+        }
+
+        /* Центральная сцена для проекции картинок */
+        .background-stage {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 4%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* Экраны-контейнеры для слайдшоу */
+        .eva-monitor-screen {
+            height: 80vh;
+            width: 33vw;
+            position: relative;
+            border: 1px solid rgba(255, 102, 0, 0.15);
+            background: rgba(10, 5, 2, 0.3);
+            overflow: hidden;
+        }
+
+        .left-monitor {
+            -webkit-mask-image: linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 25%, rgba(0,0,0,1) 85%, rgba(0,0,0,0) 100%);
+            mask-image: linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 25%, rgba(0,0,0,1) 85%, rgba(0,0,0,0) 100%);
+        }
+
+        .right-monitor {
+            -webkit-mask-image: linear-gradient(to left, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 25%, rgba(0,0,0,1) 85%, rgba(0,0,0,0) 100%);
+            mask-image: linear-gradient(to left, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 25%, rgba(0,0,0,1) 85%, rgba(0,0,0,0) 100%);
+        }
+
+        /* Слайды с мягким переключением через opacity */
+        .eva-slide {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
+            opacity: 0;
+            transition: opacity 1.2s ease-in-out;
+            filter: grayscale(25%) saturate(140%) contrast(105%) opacity(0.4);
+        }
+
+        .eva-slide.active {
+            opacity: 1;
+        }
+
+        /* Декоративная разметка MAGI поверх экранов */
+        .eva-monitor-screen::before {
+            content: "👁 SIGNAL RECEIVE // SYNC STATUS";
+            position: absolute;
+            top: 10px; left: 15px;
+            font-family: monospace;
+            color: var(--eva-orange);
+            font-size: 9px;
+            opacity: 0.5;
+        }
+
+        /* Информационные панели */
+        .eva-deco-left, .eva-deco-right {
+            position: absolute;
+            font-family: 'Courier New', monospace;
+            color: var(--eva-orange);
+            opacity: 0.8;
+            font-size: 11px;
+            text-transform: uppercase;
+            pointer-events: none;
+            z-index: 2;
+            animation: textPulse 4s infinite ease-in-out;
+        }
+        .eva-deco-left { left: 30px; top: 30px; }
+        .eva-deco-right { right: 30px; bottom: 30px; text-align: right; }
+
+        @keyframes textPulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 0.9; text-shadow: 0 0 5px var(--eva-orange); }
+        }
+
+        .eva-tag {
+            background: var(--eva-orange);
+            color: #000;
+            font-weight: bold;
+            padding: 2px 5px;
+            font-size: 10px;
+            display: inline-block;
+            margin-bottom: 5px;
+            box-shadow: 0 0 5px rgba(255, 102, 0, 0.4);
+        }
+
+        /* Окно плеера */
         .window {
             background: var(--face);
             border-top: 2px solid var(--highlight);
             border-left: 2px solid var(--highlight);
             border-right: 2px solid var(--dark-shadow);
             border-bottom: 2px solid var(--dark-shadow);
-            box-shadow: 1px 1px 0 0 var(--shadow) inset, -1px -1px 0 0 var(--shadow) inset;
-            width: 380px;
+            box-shadow: 1px 1px 0 0 #000, -1px -1px 0 0 var(--shadow) inset;
+            width: 400px;
             padding: 3px;
+            z-index: 10;
+            position: relative;
         }
 
-        /* Заголовок окна */
+        .eva-border {
+            position: absolute;
+            top: -6px; left: -6px; right: -6px; bottom: -6px;
+            border: 1px solid var(--eva-orange);
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
         .title-bar {
-            background: linear-gradient(90deg, #000080, #1080d0);
+            background: linear-gradient(90deg, #b54500, var(--eva-orange));
             color: white;
-            padding: 3px 6px;
+            padding: 4px 6px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             font-weight: bold;
         }
 
-        .title-bar-text {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .title-bar-controls button {
-            width: 16px;
-            height: 14px;
-            background: var(--face);
-            border-top: 1px solid var(--highlight);
-            border-left: 1px solid var(--highlight);
-            border-right: 1px solid var(--dark-shadow);
-            border-bottom: 1px solid var(--dark-shadow);
-            font-weight: bold;
-            font-size: 9px;
-            cursor: pointer;
-            display: inline-flex;
-            justify-content: center;
-            align-items: center;
-            padding: 0;
-        }
-
-        .title-bar-controls button:active {
-            border-top: 1px solid var(--dark-shadow);
-            border-left: 1px solid var(--dark-shadow);
-            border-right: 1px solid var(--highlight);
-            border-bottom: 1px solid var(--highlight);
-        }
-
-        /* Контент внутри окна */
         .window-body {
             padding: 10px;
         }
 
-        /* Дисплей плеера */
         .display {
-            background: #000;
-            color: #00ff00;
+            background: #120601;
+            color: var(--eva-orange);
             font-family: 'Courier New', monospace;
             padding: 10px;
             border-top: 2px solid var(--shadow);
             border-left: 2px solid var(--shadow);
             border-right: 2px solid var(--highlight);
             border-bottom: 2px solid var(--highlight);
-            margin-bottom: 15px;
-            text-shadow: 0 0 4px #00ff00;
+            margin-bottom: 12px;
+            text-shadow: 0 0 5px var(--eva-orange);
         }
 
         .status {
-            font-size: 14px;
-            margin-bottom: 5px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            font-size: 11px;
+            margin-bottom: 4px;
+            font-weight: bold;
+            letter-spacing: 1px;
         }
 
         .time {
@@ -117,28 +201,47 @@
             font-weight: bold;
         }
 
-        /* Панели управления (Группы) */
+        /* Фикс строк со слайдерами */
         .field-row {
             display: flex;
             align-items: center;
-            gap: 10px;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
         }
 
-        label {
-            min-width: 60px;
+        .field-row label {
+            width: 55px;
+            font-weight: bold;
+            color: #222;
         }
 
-        /* Винтажные кнопки */
+        .slider-wrapper {
+            flex-grow: 1;
+            padding-right: 8px;
+        }
+
+        .val-display {
+            width: 50px;
+            text-align: right;
+            font-family: monospace;
+            font-weight: bold;
+            padding-right: 4px;
+        }
+
+        .btn-wrapper {
+            width: 55px;
+        }
+
         button.win-btn {
             background: var(--face);
             border-top: 2px solid var(--highlight);
             border-left: 2px solid var(--highlight);
             border-right: 2px solid var(--dark-shadow);
             border-bottom: 2px solid var(--dark-shadow);
-            padding: 6px 12px;
+            padding: 5px 12px;
             cursor: pointer;
             outline: none;
+            text-align: center;
+            font-weight: bold;
         }
 
         button.win-btn:active:not(:disabled) {
@@ -146,53 +249,43 @@
             border-left: 2px solid var(--dark-shadow);
             border-right: 2px solid var(--highlight);
             border-bottom: 2px solid var(--highlight);
-            padding: 7px 11px 5px 13px;
         }
 
         button.win-btn:disabled {
-            color: var(--shadow);
+            color: #888;
             cursor: not-allowed;
         }
 
-        /* Кастомный инпут для файла под ретро-кнопку */
         .file-upload {
             position: relative;
             overflow: hidden;
             display: inline-block;
+            width: 48%;
         }
 
         .file-upload input[type=file] {
             position: absolute;
-            left: 0;
-            top: 0;
-            opacity: 0;
-            cursor: pointer;
-            height: 100%;
-            width: 100%;
+            left: 0; top: 0; opacity: 0;
+            cursor: pointer; height: 100%; width: 100%;
         }
 
-        /* Ползунки (Слайдеры) в стиле Win95 */
+        /* Стилизация ползунков под Win95 */
         input[type=range] {
             -webkit-appearance: none;
             width: 100%;
             background: transparent;
         }
-
-        input[type=range]:focus {
-            outline: none;
-        }
-
+        input[type=range]:focus { outline: none; }
         input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 4px;
-            background: var(--shadow);
+            width: 100%; height: 4px;
+            background: #b8b4ac;
             border-bottom: 1px solid var(--highlight);
             border-right: 1px solid var(--highlight);
+            border-top: 1px solid var(--shadow);
+            border-left: 1px solid var(--shadow);
         }
-
         input[type=range]::-webkit-slider-thumb {
-            height: 18px;
-            width: 10px;
+            height: 18px; width: 12px;
             background: var(--face);
             border-top: 1px solid var(--highlight);
             border-left: 1px solid var(--highlight);
@@ -201,135 +294,261 @@
             cursor: pointer;
             -webkit-appearance: none;
             margin-top: -7px;
+            box-shadow: 1px 1px 1px #000;
         }
 
-        input[type=range]:active::-webkit-slider-thumb {
-            border-top: 1px solid var(--dark-shadow);
-            border-left: 1px solid var(--dark-shadow);
-            border-right: 1px solid var(--highlight);
-            border-bottom: 1px solid var(--highlight);
+        .controls-row {
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
         }
 
-        .controls-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 15px;
+        .playlist-title {
+            font-weight: bold;
+            margin: 8px 0 4px 0;
+            color: #111;
+        }
+
+        .playlist-container {
+            border-top: 2px solid var(--shadow);
+            border-left: 2px solid var(--shadow);
+            border-right: 2px solid var(--highlight);
+            border-bottom: 2px solid var(--highlight);
+            background: #ffffff;
+            height: 95px;
+            overflow-y: auto;
+            margin-bottom: 8px;
+        }
+
+        .playlist-item {
+            padding: 4px 8px;
+            color: #000000;
+            cursor: pointer;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .playlist-item.active { background: var(--eva-orange); color: #ffffff; font-weight: bold; }
+        .playlist-item:hover:not(.active) { background: #f0ede6; }
+
+        .cassette-deck {
+            border: 2px solid var(--dark-shadow);
+            border-top: 2px solid var(--shadow);
+            border-left: 2px solid var(--shadow);
+            border-right: 2px solid var(--highlight);
+            border-bottom: 2px solid var(--highlight);
+            background: #15110e;
+            padding: 5px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .reset-btn {
+            font-size: 10px;
+            padding: 2px 4px !important;
+            height: 20px;
+            width: 100%;
         }
 
         .save-section {
             border-top: 1px solid var(--shadow);
+            box-shadow: 0 1px 0 0 var(--highlight);
             padding-top: 10px;
-            margin-top: 10px;
-            display: flex;
-            justify-content: flex-end;
+            text-align: right;
         }
     </style>
 </head>
 <body>
 
+<div class="background-stage">
+    <div class="eva-monitor-screen left-monitor" id="left-deck">
+        <div class="eva-slide active" style="background-image: url('pin_misato.jpg');"></div>
+        <div class="eva-slide" style="background-image: url('pin_shinji.jpg');"></div>
+        <div class="eva-slide" style="background-image: url('pin_donnie.jpg');"></div>
+    </div>
+    
+    <div class="eva-monitor-screen right-monitor" id="right-deck">
+        <div class="eva-slide active" style="background-image: url('pin_the_end.jpg');"></div>
+        <div class="eva-slide" style="background-image: url('pin_fightclub.jpg');"></div>
+        <div class="eva-slide" style="background-image: url('pin_gosling.jpg');"></div>
+    </div>
+</div>
+
+<div class="eva-deco-left">
+    <div class="eva-tag">NERV ONLY</div>
+    <div>MAGI-01: MELCHIOR</div>
+    <div>SYNC RATE: 84.3%</div>
+    <div>A.T. FIELD: ACTIVE</div>
+</div>
+
+<div class="eva-deco-right">
+    <div class="eva-tag" style="background: #b54500; color: #fff;">EMERGENCY</div>
+    <div>PATTERN: BLUE</div>
+    <div>SYS_STATUS: LINKED</div>
+</div>
+
 <div class="window">
+    <div class="eva-border"></div>
     <div class="title-bar">
         <div class="title-bar-text">
-            <span>💿 CD-Track.exe</span>
-        </div>
-        <div class="title-bar-controls">
-            <button aria-label="Minimize">_</button>
-            <button aria-label="Maximize">🗖</button>
-            <button aria-label="Close">X</button>
+            <span>💿 CD-Track.exe [EVA-UNIT_01]</span>
         </div>
     </div>
 
     <div class="window-body">
         <div class="display">
-            <div class="status" id="track-name">NO DISC INSERTED</div>
+            <div class="status" id="track-name">EMPTY PLAYLIST</div>
             <div class="time" id="time-display">00:00 / 00:00</div>
+            <canvas id="visualizer" style="width: 100%; height: 42px; background: #120601; margin-top: 6px;"></canvas>
         </div>
 
-        <div class="controls-grid">
+        <div class="cassette-deck">
+            <canvas id="cassette-canvas" width="340" height="85"></canvas>
+        </div>
+
+        <div class="controls-row">
             <div class="file-upload">
-                <button class="win-btn" style="width: 100%;">📂 Open File...</button>
-                <input type="file" id="audio-file" accept="audio/*">
+                <button class="win-btn" style="width: 100%;">📂 Open Files...</button>
+                <input type="file" id="audio-file" accept="audio/*" multiple>
             </div>
-            <button class="win-btn" id="play-btn" disabled>▶ Play</button>
+            <button class="win-btn" id="play-btn" style="width: 48%;" disabled>▶ Play</button>
         </div>
 
         <div class="field-row">
             <label for="speed-slider">Speed:</label>
-            <input type="range" id="speed-slider" min="0.5" max="2.0" step="0.01" value="1.0">
-            <span id="speed-val" style="min-width: 45px; text-align: right;">1.00x</span>
+            <div class="slider-wrapper">
+                <input type="range" id="speed-slider" min="0.5" max="2.0" step="0.01" value="1.0">
+            </div>
+            <div class="val-display" id="speed-val">1.00x</div>
+            <div class="btn-wrapper">
+                <button class="win-btn reset-btn" id="reset-speed-btn">Reset</button>
+            </div>
         </div>
 
         <div class="field-row">
-            <label>Position:</label>
-            <input type="range" id="progress-slider" min="0" value="0" step="1" disabled>
+            <label for="progress-slider">Position:</label>
+            <div class="slider-wrapper">
+                <input type="range" id="progress-slider" min="0" value="0" step="0.1" disabled>
+            </div>
+            <div class="val-display" id="progress-val">00:00</div>
+            <div class="btn-wrapper"></div> </div>
+
+        <div class="playlist-title">Playlist.exe:</div>
+        <div class="playlist-container" id="playlist-box">
+            <div style="color: var(--shadow); padding: 15px; text-align: center;" id="playlist-empty-text">Drop or open multiple audio files here</div>
         </div>
 
         <div class="save-section">
-            <button class="win-btn" id="save-btn" disabled>💾 Save Modified MP3 (192k)</button>
+            <button class="win-btn" id="save-btn" style="background: #e4dfd5; color: #b54500;" disabled>💾 Save Modified MP3 (192k)</button>
         </div>
     </div>
 </div>
 
 <script>
-    let audioCtx = null;
-    let audioBuffer = null;
-    let sourceNode = null;
-    
-    let isPlaying = false;
-    let startTime = 0;       
-    let r_offset = 0;        
-    let currentPlaybackRate = 1.0;
-    let originalFileName = "track"; // Переменная для хранения оригинального названия файла
+    // Скрипт автоматического переключения слайдов на экранах MAGI
+    function startMonitorSlides(containerId, intervalMs) {
+        const container = document.getElementById(containerId);
+        const slides = container.getElementsByClassName('eva-slide');
+        let currentSlide = 0;
+        
+        setInterval(() => {
+            slides[currentSlide].classList.remove('active');
+            currentSlide = (currentSlide + 1) % slides.length;
+            slides[currentSlide].classList.add('active');
+        }, intervalMs);
+    }
+
+    // Запускаем слайдшоу с небольшой разницей во времени для естественности
+    window.addEventListener('DOMContentLoaded', () => {
+        startMonitorSlides('left-deck', 5000);
+        startMonitorSlides('right-deck', 7000);
+    });
+
+    // Основная аудио логика плеера
+    let audioCtx = null, audioBuffer = null, sourceNode = null, analyser = null;
+    let isPlaying = false, isDecoding = false, startTime = 0, r_offset = 0, currentPlaybackRate = 1.0;
+    let originalFileName = "track", isUserDraggingProgress = false;
+    let playlist = [], currentTrackIndex = -1;
+    let tapeRotationAngle = 0, lastAnimationFrameTime = performance.now();
 
     const fileInput = document.getElementById('audio-file');
     const playBtn = document.getElementById('play-btn');
     const saveBtn = document.getElementById('save-btn');
     const speedSlider = document.getElementById('speed-slider');
     const speedVal = document.getElementById('speed-val');
+    const resetSpeedBtn = document.getElementById('reset-speed-btn');
     const progressSlider = document.getElementById('progress-slider');
+    const progressVal = document.getElementById('progress-val');
     const trackName = document.getElementById('track-name');
     const timeDisplay = document.getElementById('time-display');
+    const canvas = document.getElementById('visualizer');
+    const canvasCtx = canvas ? canvas.getContext('2d') : null;
+    const cassetteCanvas = document.getElementById('cassette-canvas');
+    const cassetteCtx = cassetteCanvas ? cassetteCanvas.getContext('2d') : null;
+    const playlistBox = document.getElementById('playlist-box');
+    const playlistEmptyText = document.getElementById('playlist-empty-text');
 
-    fileInput.addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        // Отсекаем старое расширение файла, чтобы не плодить конструкции вида "song.mp3.mp3"
-        originalFileName = file.name.replace(/\.[^/.]+$/, "");
-
-        trackName.textContent = file.name.toUpperCase();
-        playBtn.disabled = true;
-        saveBtn.disabled = true;
-
-        if (!audioCtx) {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function handleMultipleFiles(files) {
+        if (!files || files.length === 0) return;
+        if (playlistEmptyText) playlistEmptyText.remove();
+        const oldLength = playlist.length;
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (file.type.startsWith('audio/') || file.name.endsWith('.mp3') || file.name.endsWith('.wav')) {
+                playlist.push(file);
+            }
         }
+        renderPlaylist();
+        if (currentTrackIndex === -1 && playlist.length > 0) loadTrack(oldLength);
+    }
 
+    function renderPlaylist() {
+        playlistBox.innerHTML = '';
+        playlist.forEach((file, index) => {
+            const item = document.createElement('div');
+            item.className = 'playlist-item';
+            if (index === currentTrackIndex) item.classList.add('active');
+            item.textContent = `${index + 1}. ${file.name.toUpperCase()}`;
+            item.addEventListener('dblclick', () => { if (!isDecoding) loadTrack(index); });
+            playlistBox.appendChild(item);
+        });
+    }
+
+    function loadTrack(index) {
+        if (index < 0 || index >= playlist.length) return;
+        if (isPlaying) stopTrack();
+        currentTrackIndex = index;
+        renderPlaylist();
+        const file = playlist[index];
+        isDecoding = true;
+        originalFileName = file.name.replace(/\.[^/.]+$/, "");
+        trackName.textContent = "LOADING: " + file.name.toUpperCase();
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const reader = new FileReader();
-        reader.onload = function(event) {
-            audioCtx.decodeAudioData(event.target.result, function(buffer) {
-                audioBuffer = buffer;
-                playBtn.disabled = false;
-                saveBtn.disabled = false;
-                progressSlider.disabled = false;
-                progressSlider.max = Math.floor(audioBuffer.duration);
-                progressSlider.value = 0;
-                r_offset = 0;
-                updateTimeDisplay();
-                if (isPlaying) stopTrack();
-            }, function(err) {
-                trackName.textContent = "ERROR LOADING AUDIO";
-                console.error(err);
+        reader.onload = function(e) {
+            audioCtx.decodeAudioData(e.target.result, function(buffer) {
+                audioBuffer = buffer; isDecoding = false;
+                playBtn.disabled = false; saveBtn.disabled = false; progressSlider.disabled = false;
+                progressSlider.max = audioBuffer.duration; progressSlider.value = 0; r_offset = 0;
+                trackName.textContent = file.name.toUpperCase();
+                updateTimeDisplay(); playTrack();
             });
         };
         reader.readAsArrayBuffer(file);
-    });
+    }
+
+    fileInput.addEventListener('change', function(e) { handleMultipleFiles(e.target.files); });
+    window.addEventListener('dragover', function(e) { e.preventDefault(); });
+    window.addEventListener('drop', function(e) { e.preventDefault(); handleMultipleFiles(e.dataTransfer.files); });
+
+    function triggerPlayPause() {
+        if (isDecoding || !audioBuffer) return;
+        if (isPlaying) pauseTrack(); else playTrack();
+    }
 
     speedSlider.addEventListener('input', function() {
         currentPlaybackRate = parseFloat(this.value);
         speedVal.textContent = currentPlaybackRate.toFixed(2) + 'x';
-        
         if (isPlaying && sourceNode) {
             const elapsed = audioCtx.currentTime - startTime;
             r_offset += elapsed * sourceNode.playbackRate.value;
@@ -338,188 +557,136 @@
         }
     });
 
-    playBtn.addEventListener('click', function() {
-        if (!audioBuffer) return;
-        if (isPlaying) pauseTrack(); else playTrack();
-    });
+    resetSpeedBtn.addEventListener('click', function() { speedSlider.value = 1.0; speedSlider.dispatchEvent(new Event('input')); });
+    playBtn.addEventListener('click', triggerPlayPause);
 
     function playTrack() {
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-
         sourceNode = audioCtx.createBufferSource();
         sourceNode.buffer = audioBuffer;
-        sourceNode.playbackRate.setValueAtTime(currentPlaybackRate, audioCtx.currentTime);
-        sourceNode.connect(audioCtx.destination);
-
+        if (!analyser) { analyser = audioCtx.createAnalyser(); analyser.fftSize = 64; }
+        sourceNode.connect(analyser); analyser.connect(audioCtx.destination);
         sourceNode.start(0, r_offset);
-        startTime = audioCtx.currentTime;
-        isPlaying = true;
+        sourceNode.playbackRate.setValueAtTime(currentPlaybackRate, audioCtx.currentTime);
+        startTime = audioCtx.currentTime; isPlaying = true;
         playBtn.textContent = "⏸ Pause";
-        requestAnimationFrame(updateProgress);
+        canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight;
+        drawVisualizer(); lastAnimationFrameTime = performance.now();
+        requestAnimationFrame(updateLoop);
     }
 
     function pauseTrack() {
         if (!sourceNode) return;
-        const elapsed = audioCtx.currentTime - startTime;
-        r_offset += elapsed * currentPlaybackRate;
-        sourceNode.stop();
-        sourceNode = null;
-        isPlaying = false;
-        playBtn.textContent = "▶ Play";
+        r_offset += (audioCtx.currentTime - startTime) * currentPlaybackRate;
+        sourceNode.stop(); sourceNode = null; isPlaying = false; playBtn.textContent = "▶ Play";
     }
 
     function stopTrack() {
         if (sourceNode) { sourceNode.stop(); sourceNode = null; }
-        isPlaying = false;
-        r_offset = 0;
-        progressSlider.value = 0;
-        playBtn.textContent = "▶ Play";
-        updateTimeDisplay();
+        isPlaying = false; r_offset = 0; progressSlider.value = 0; playBtn.textContent = "▶ Play";
+        updateTimeDisplay(); drawCassette();
     }
 
-    progressSlider.addEventListener('input', function() {
-        r_offset = parseFloat(this.value);
-        updateTimeDisplay();
-        if (isPlaying) {
-            if (sourceNode) sourceNode.stop();
-            playTrack();
-        }
+    progressSlider.addEventListener('mousedown', function() { isUserDraggingProgress = true; });
+    progressSlider.addEventListener('input', function() { updateTimeDisplay(parseFloat(this.value)); });
+    progressSlider.addEventListener('change', function() {
+        r_offset = parseFloat(this.value); isUserDraggingProgress = false;
+        if (isPlaying) { if (sourceNode) sourceNode.stop(); playTrack(); } else { updateTimeDisplay(); drawCassette(); }
     });
 
-    function updateProgress() {
+    function updateLoop(now) {
         if (!isPlaying) return;
-        const elapsed = audioCtx.currentTime - startTime;
-        const currentPos = r_offset + (elapsed * currentPlaybackRate);
-
+        const currentPos = r_offset + ((audioCtx.currentTime - startTime) * currentPlaybackRate);
         if (currentPos >= audioBuffer.duration) {
             stopTrack();
+            if (currentTrackIndex + 1 < playlist.length) loadTrack(currentTrackIndex + 1);
             return;
         }
-
-        progressSlider.value = Math.floor(currentPos);
-        updateTimeDisplay(currentPos);
-        requestAnimationFrame(updateProgress);
+        if (!isUserDraggingProgress) { progressSlider.value = currentPos; updateTimeDisplay(currentPos); }
+        tapeRotationAngle += (Math.PI * 1.2) * currentPlaybackRate * ((now - lastAnimationFrameTime) / 1000);
+        lastAnimationFrameTime = now;
+        if (!isUserDraggingProgress) drawCassette(currentPos);
+        requestAnimationFrame(updateLoop);
     }
 
     function updateTimeDisplay(pos = r_offset) {
         if (!audioBuffer) return;
         timeDisplay.textContent = formatTime(pos) + " / " + formatTime(audioBuffer.duration);
+        progressVal.textContent = formatTime(pos);
     }
 
     function formatTime(seconds) {
-        const min = Math.floor(seconds / 60);
-        const sec = Math.floor(seconds % 60);
+        const min = Math.floor(seconds / 60); const sec = Math.floor(seconds % 60);
         return (min < 10 ? "0" : "") + min + ":" + (sec < 10 ? "0" : "") + sec;
     }
 
-    /* ==========================================================
-       ЭКСПОРТ И КОДИРОВАНИЕ В MP3 С СОХРАНЕНИЕМ НАЗВАНИЯ ТРЕКА
-       ========================================================== */
+    function drawCassette(customPos = null) {
+        if (!cassetteCtx) return;
+        let ctx = cassetteCtx; ctx.clearRect(0, 0, 340, 85);
+        ctx.fillStyle = '#1c1712'; ctx.fillRect(40, 5, 260, 75);
+        ctx.fillStyle = '#d4d0c8'; ctx.fillRect(55, 10, 230, 45);
+        ctx.fillStyle = '#b54500'; ctx.fillRect(55, 10, 230, 4);
+        ctx.fillStyle = '#000000'; ctx.fillRect(100, 22, 140, 22);
+        let factor = 0.5;
+        if (audioBuffer && audioBuffer.duration) {
+            let p = customPos !== null ? customPos : r_offset;
+            factor = Math.min(1, Math.max(0, p / audioBuffer.duration));
+        }
+        ctx.fillStyle = '#5c3a1a';
+        ctx.beginPath(); ctx.arc(135, 33, 13 + (17 * (1 - factor)), 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(205, 33, 13 + (17 * factor), 0, Math.PI * 2); ctx.fill();
+        drawSpindle(135, 33, tapeRotationAngle, ctx); drawSpindle(205, 33, tapeRotationAngle, ctx);
+    }
+
+    function drawSpindle(cx, cy, angle, ctx) {
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle);
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#000000'; ctx.lineWidth = 2;
+        for (let i = 0; i < 6; i++) {
+            ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -9); ctx.stroke(); ctx.rotate(Math.PI / 3);
+        }
+        ctx.restore();
+    }
+    drawCassette();
+
+    function drawVisualizer() {
+        if (!isPlaying || !analyser) return;
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        const draw = () => {
+            if (!isPlaying) return;
+            requestAnimationFrame(draw);
+            analyser.getByteFrequencyData(dataArray);
+            canvasCtx.fillStyle = '#120601'; canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < dataArray.length; i++) {
+                let h = (dataArray[i] / 255) * canvas.height;
+                canvasCtx.fillStyle = 'var(--eva-orange)';
+                canvasCtx.fillRect(i * 7, canvas.height - h, 5, h);
+            }
+        };
+        draw();
+    }
+
     saveBtn.addEventListener('click', function() {
         if (!audioBuffer) return;
-
-        trackName.textContent = "RENDERING AUDIO...";
-        saveBtn.disabled = true;
-
-        const originalRate = audioBuffer.sampleRate;
-        const duration = audioBuffer.duration / currentPlaybackRate;
-        const length = Math.floor(duration * originalRate);
-
-        const offlineCtx = new OfflineAudioContext(
-            audioBuffer.numberOfChannels,
-            length,
-            originalRate
-        );
-
-        const offlineSource = offlineCtx.createBufferSource();
-        offlineSource.buffer = audioBuffer;
-        offlineSource.playbackRate.setValueAtTime(currentPlaybackRate, 0);
-        offlineSource.connect(offlineCtx.destination);
-        offlineSource.start(0);
-
-        offlineCtx.startRendering().then(function(renderedBuffer) {
-            trackName.textContent = "ENCODING TO MP3 (192kbps)...";
-            
-            setTimeout(() => {
-                encodeMP3(renderedBuffer, 192);
-            }, 50);
-
-        }).catch(function(err) {
-            console.error(err);
-            trackName.textContent = "RENDER ERROR";
-            saveBtn.disabled = false;
+        trackName.textContent = "RENDERING MP3...";
+        const offline = new OfflineAudioContext(audioBuffer.numberOfChannels, audioBuffer.duration / currentPlaybackRate * audioBuffer.sampleRate, audioBuffer.sampleRate);
+        const src = offline.createBufferSource(); src.buffer = audioBuffer; src.playbackRate.value = currentPlaybackRate;
+        src.connect(offline.destination); src.start(0);
+        offline.startRendering().then(b => {
+            const encoder = new lamejs.Mp3Encoder(b.numberOfChannels, b.sampleRate, 192);
+            let left = floatToShortPCM(b.getChannelData(0));
+            let mp3 = encoder.encodeBuffer(left);
+            const blob = new Blob([new Uint8Array(mp3)], { type: 'audio/mp3' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+            a.download = originalFileName + " [Modified].mp3"; a.click();
+            trackName.textContent = playlist[currentTrackIndex].name.toUpperCase();
         });
     });
 
-    function encodeMP3(audioBuffer, bitrate) {
-        const channels = audioBuffer.numberOfChannels;
-        const sampleRate = audioBuffer.sampleRate;
-        
-        const mp3encoder = new lamejs.Mp3Encoder(channels, sampleRate, bitrate);
-        const mp3Data = [];
-
-        let leftSamples, rightSamples;
-        if (channels === 2) {
-            leftSamples = floatToShortPCM(audioBuffer.getChannelData(0));
-            rightSamples = floatToShortPCM(audioBuffer.getChannelData(1));
-        } else {
-            leftSamples = floatToShortPCM(audioBuffer.getChannelData(0));
-            rightSamples = leftSamples;
-        }
-
-        const sampleBlockSize = 1152;
-        
-        for (let i = 0; i < leftSamples.length; i += sampleBlockSize) {
-            const leftChunk = leftSamples.subarray(i, i + sampleBlockSize);
-            const rightChunk = channels === 2 ? rightSamples.subarray(i, i + sampleBlockSize) : null;
-            
-            let mp3buf;
-            if (channels === 2) {
-                mp3buf = mp3encoder.encodeBuffer(leftChunk, rightChunk);
-            } else {
-                mp3buf = mp3encoder.encodeBuffer(leftChunk);
-            }
-            
-            if (mp3buf.length > 0) {
-                mp3Data.push(new Uint8Array(mp3buf));
-            }
-        }
-
-        const endBuf = mp3encoder.flush();
-        if (endBuf.length > 0) {
-            mp3Data.push(new Uint8Array(endBuf));
-        }
-
-        const blob = new Blob(mp3Data, { type: 'audio/mp3' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        
-        // Определяем красивый суффикс в зависимости от того, замедлили трек или ускорили
-        let suffix = " [Modified]";
-        if (currentPlaybackRate < 1.0) {
-            suffix = " [Slowed]";
-        } else if (currentPlaybackRate > 1.0) {
-            suffix = " [Speeded]";
-        }
-
-        // Скачиваем с оригинальным названием трека
-        a.download = originalFileName + suffix + ".mp3";
-        a.click();
-
-        trackName.textContent = fileInput.files[0].name.toUpperCase();
-        saveBtn.disabled = false;
-    }
-
-    function floatToShortPCM(float32Array) {
-        const int16Array = new Int16Array(float32Array.length);
-        for (let i = 0; i < float32Array.length; i++) {
-            let s = Math.max(-1, Math.min(1, float32Array[i]));
-            int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-        }
-        return int16Array;
+    function floatToShortPCM(f32) {
+        let i16 = new Int16Array(f32.length);
+        for(let i=0; i<f32.length; i++) { let s = Math.max(-1, Math.min(1, f32[i])); i16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF; }
+        return i16;
     }
 </script>
-
 </body>
 </html>
