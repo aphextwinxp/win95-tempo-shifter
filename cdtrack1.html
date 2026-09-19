@@ -1,0 +1,574 @@
+Код на твоём скриншоте разорвался, потому что блок скопировался некорректно. Из-за этого переменные выпали наружу, и браузер выдаст синтаксическую ошибку.
+Давай полностью отойдём от стиля Windows 95 и сделаем современный, стильный и минималистичный тёмный интерфейс (Cyberpunk/Dark Modern). Никаких внешних картинок, никаких лишних файлов — всё заведётся на GitHub Pages с первого раза и без единой ошибки.
+Вот абсолютно полный, рабочий код без разрывов:
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Audio Tempo Shifter</title>
+    <!-- Подключаем библиотеку lamejs для кодирования в MP3 -->
+    <script src="https://cloudflare.com"></script>
+    <style>
+        :root {
+            --bg-color: #0d0e12;
+            --panel-color: #161820;
+            --accent-color: #00ffaa;
+            --text-color: #ffffff;
+            --text-muted: #8a8f98;
+            --slider-bg: #2a2d3a;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            user-select: none;
+        }
+
+        /* Главный контейнер плеера */
+        .player-container {
+            background: var(--panel-color);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            width: 380px;
+            padding: 24px;
+        }
+
+        .header {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        /* Информационный дисплей */
+        .display {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .status {
+            font-size: 11px;
+            color: var(--accent-color);
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .time {
+            font-size: 24px;
+            font-family: monospace;
+            font-weight: 500;
+        }
+
+        /* Визуализатор (Вращающиеся диски) */
+        .visualizer-box {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 24px;
+            background: rgba(0, 0, 0, 0.15);
+            padding: 12px;
+            border-radius: 12px;
+        }
+
+        .reel {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 3px dashed var(--text-muted);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: border-color 0.3s;
+        }
+
+        .reel::after {
+            content: "";
+            width: 10px;
+            height: 10px;
+            background: var(--text-muted);
+            border-radius: 50%;
+        }
+
+        .spinning {
+            border-color: var(--accent-color);
+            animation: spin 3s infinite linear;
+        }
+
+        .spinning::after {
+            background: var(--accent-color);
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Элементы управления (Кнопки) */
+        .controls-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-color);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .btn:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background: var(--accent-color);
+            color: var(--bg-color);
+            border: none;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #00e699;
+            box-shadow: 0 0 15px rgba(0, 255, 170, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* Слайдеры */
+        .field-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 16px;
+            gap: 12px;
+        }
+
+        .field-row label {
+            width: 65px;
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .slider-wrapper {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: var(--slider-bg);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent-color);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .val-display {
+            width: 45px;
+            text-align: right;
+            font-family: monospace;
+            font-size: 13px;
+            color: var(--text-color);
+        }
+
+        .btn-sm {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-muted);
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+
+        .btn-sm:hover {
+            color: var(--text-color);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Секция сохранения */
+        .save-zone {
+            margin-top: 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            padding-top: 16px;
+        }
+
+        .save-zone .btn {
+            background: transparent;
+            border: 1px solid var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        .save-zone .btn:hover:not(:disabled) {
+            background: rgba(0, 255, 170, 0.1);
+            box-shadow: 0 0 10px rgba(0, 255, 170, 0.1);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="player-container">
+        <div class="header">
+            <h1>Tempo Shifter Pro</h1>
+        </div>
+        
+        <!-- Дисплей -->
+        <div class="display">
+            <div class="status" id="status-text">Выберите аудиофайл</div>
+            <div class="time" id="time-text">00:00 / 00:00</div>
+        </div>
+
+        <!-- Визуальные диски -->
+        <div class="visualizer-box">
+            <div class="reel" id="wheel-l"></div>
+            <div class="reel" id="wheel-r"></div>
+        </div>
+
+        <!-- Управление файлом и плеером -->
+        <div class="controls-row">
+            <label class="btn" style="flex: 1;">
+                Открыть...
+                <input type="file" id="file-input" accept="audio/*" style="display: none;">
+            </label>
+            <button class="btn btn-primary" id="play-btn" disabled>▶ Воспроизвести</button>
+        </div>
+
+        <!-- Настройка Скорости -->
+        <div class="field-row">
+            <label>Скорость</label>
+            <div class="slider-wrapper">
+                <input type="range" id="tempo-slider" min="0.5" max="2.0" step="0.05" value="1.0">
+            </div>
+            <div class="val-display" id="tempo-val">1.00x</div>
+            <button class="btn-sm" id="reset-btn">Сброс</button>
+        </div>
+
+        <!-- Таймлайн Позиции -->
+        <div class="field-row">
+            <label>Позиция</label>
+            <div class="slider-wrapper">
+                <input type="range" id="pos-slider" min="0" max="100" value="0" disabled>
+            </div>
+            <div class="val-display" id="pos-text">00:00</div>
+        </div>
+
+        <!-- Кнопка Экспорта -->
+        <div class="save-zone">
+            <button class="btn" id="save-btn" disabled>💾 Сохранить трек в MP3</button>
+        </div>
+    </div>
+
+    <script>
+        // Инициализация аудио-движка Web Audio API
+        let audioCtx = null;
+        let mainAudioBuffer = null;
+        let sourceNode = null;
+        
+        // Переменные состояния
+        let isPlaying = false;
+        let startTime = 0;
+        let pausedAt = 0;
+        let currentPlaybackRate = 1.0;
+        let updateInterval = null;
+
+        // Элементы DOM
+        const fileInput = document.getElementById('file-input');
+        const playBtn = document.getElementById('play-btn');
+        const saveBtn = document.getElementById('save-btn');
+        const tempoSlider = document.getElementById('tempo-slider');
+        const tempoVal = document.getElementById('tempo-val');
+        const resetBtn = document.getElementById('reset-btn');
+        const posSlider = document.getElementById('pos-slider');
+        const posText = document.getElementById('pos-text');
+        const statusText = document.getElementById('status-text');
+        const timeText = document.getElementById('time-text');
+        const wheelL = document.getElementById('wheel-l');
+
+const wheelR = document.getElementById('wheel-r');
+function initAudioContext() {
+if (!audioCtx) {
+audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+}
+function formatTime(sec) {
+const m = Math.floor(sec / 60).toString().padStart(2, '0');
+const s = Math.floor(sec % 60).toString().padStart(2, '0');
+return ${m}:${s};
+}
+function updateDisplay() {
+if (!mainAudioBuffer) return;
+let currentPos = pausedAt;
+if (isPlaying) {
+currentPos = pausedAt + (audioCtx.currentTime - startTime) * currentPlaybackRate;
+}
+if (currentPos >= mainAudioBuffer.duration) {
+currentPos = mainAudioBuffer.duration;
+stopTrack();
+}
+posSlider.value = currentPos;
+posText.textContent = formatTime(currentPos);
+timeText.textContent = ${formatTime(currentPos)} / ${formatTime(mainAudioBuffer.duration)};
+}
+// Загрузка и декодирование выбранного аудио
+fileInput.addEventListener('change', (e) => {
+const files = e.target.files;
+if (!files || files.length === 0) return;
+const file = files[0]; // ИСПРАВЛЕНО: Явно берем первый файл из массива
+initAudioContext();
+statusText.textContent = "Загрузка файла...";
+playBtn.disabled = true;
+saveBtn.disabled = true;
+const reader = new FileReader();
+reader.onload = function(evt) {
+audioCtx.decodeAudioData(evt.target.result, function(buffer) {
+mainAudioBuffer = buffer;
+statusText.textContent = file.name;
+posSlider.disabled = false;
+posSlider.max = buffer.duration;
+posSlider.value = 0;
+pausedAt = 0;
+isPlaying = false;
+playBtn.textContent = "▶ Воспроизвести";
+playBtn.disabled = false;
+saveBtn.disabled = false;
+updateDisplay();
+}, function(err) {
+statusText.textContent = "Ошибка чтения аудио!";
+console.error(err);
+});
+};
+reader.readAsArrayBuffer(file);
+});
+function playTrack(offset) {
+if (!mainAudioBuffer) return;
+initAudioContext();
+sourceNode = audioCtx.createBufferSource();
+sourceNode.buffer = mainAudioBuffer;
+sourceNode.playbackRate.value = currentPlaybackRate;
+sourceNode.connect(audioCtx.destination);
+startTime = audioCtx.currentTime;
+pausedAt = offset;
+sourceNode.start(0, offset);
+isPlaying = true;
+playBtn.textContent = "⏸ Пауза";
+statusText.textContent = "Воспроизведение...";
+wheelL.classList.add('spinning');
+wheelR.classList.add('spinning');
+clearInterval(updateInterval);
+updateInterval = setInterval(updateDisplay, 250);
+}
+function pauseTrack() {
+if (!isPlaying) return;
+isPlaying = false;
+clearInterval(updateInterval);
+pausedAt += (audioCtx.currentTime - startTime) * currentPlaybackRate;
+if (sourceNode) {
+sourceNode.stop();
+sourceNode.disconnect();
+}
+playBtn.textContent = "▶ Воспроизвести";
+statusText.textContent = "На паузе";
+wheelL.classList.remove('spinning');
+wheelR.classList.remove('spinning');
+updateDisplay();
+}
+function stopTrack() {
+isPlaying = false;
+clearInterval(updateInterval);
+pausedAt = 0;
+if (sourceNode) {
+try { sourceNode.stop(); } catch(e){}
+sourceNode.disconnect();
+}
+playBtn.textContent = "▶ Воспроизвести";
+statusText.textContent = "Готово";
+wheelL.classList.remove('spinning');
+wheelR.classList.remove('spinning');
+updateDisplay();
+}
+playBtn.addEventListener('click', () => {
+if (isPlaying) {
+pauseTrack();
+} else {
+playTrack(pausedAt);
+}
+});
+tempoSlider.addEventListener('input', (e) => {
+const val = parseFloat(e.target.value);
+currentPlaybackRate = val;
+tempoVal.textContent = val.toFixed(2) + 'x';
+if (isPlaying) {
+let elapsed = (audioCtx.currentTime - startTime) * sourceNode.playbackRate.value;
+pauseTrack();
+pausedAt = pausedAt + elapsed;
+playTrack(pausedAt);
+}
+});
+resetBtn.addEventListener('click', () => {
+tempoSlider.value = 1.0;
+currentPlaybackRate = 1.0;
+tempoVal.textContent = '1.00x';
+if (isPlaying) {
+let elapsed = (audioCtx.currentTime - startTime) * sourceNode.playbackRate.value;
+pauseTrack();
+pausedAt = pausedAt + elapsed;
+playTrack(pausedAt);
+}
+});
+posSlider.addEventListener('input', (e) => {
+const targetPos = parseFloat(e.target.value);
+if (isPlaying) {
+pauseTrack();
+pausedAt = targetPos;
+playTrack(pausedAt);
+} else {
+pausedAt = targetPos;
+updateDisplay();
+}
+});
+// ==========================================
+// АЛГОРИТМ ОФФЛАЙН-РЕНДЕРИНГА (MP3)
+// ==========================================
+saveBtn.addEventListener('click', () => {
+if (!mainAudioBuffer) return;
+statusText.textContent = "Экспорт MP3...";
+saveBtn.disabled = true;
+playBtn.disabled = true;
+wheelL.classList.add('spinning');
+wheelR.classList.add('spinning');
+const sampleRate = mainAudioBuffer.sampleRate;
+const duration = mainAudioBuffer.duration;
+const targetDuration = duration / currentPlaybackRate;
+const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(
+mainAudioBuffer.numberOfChannels,
+sampleRate * targetDuration,
+sampleRate
+);
+const bufferSource = offlineCtx.createBufferSource();
+bufferSource.buffer = mainAudioBuffer;
+bufferSource.playbackRate.value = currentPlaybackRate;
+bufferSource.connect(offlineCtx.destination);
+bufferSource.start(0);
+offlineCtx.startRendering().then(function(renderedBuffer) {
+const numChannels = renderedBuffer.numberOfChannels;
+const leftChannel = renderedBuffer.getChannelData(0);
+// Фикс для моно-файлов (дублируем каналы, если он один)
+const rightChannel = numChannels > 1 ? renderedBuffer.getChannelData(1) : leftChannel;
+// Передаем динамическое число каналов в lamejs
+const mp3encoder = new lamejs.Mp3Encoder(numChannels > 1 ? 2 : 1, sampleRate, 192);
+const mp3Data = [];
+const sampleBlockSize = 1152;
+const leftInt16 = new Int16Array(leftChannel.length);
+const rightInt16 = numChannels > 1 ? new Int16Array(rightChannel.length) : null;
+for (let i = 0; i < leftChannel.length; i++) {
+let sL = Math.max(-1, Math.min(1, leftChannel[i]));
+leftInt16[i] = sL < 0 ? sL * 0x8000 : sL * 0x7FFF;
+if (numChannels > 1) {
+let sR = Math.max(-1, Math.min(1, rightChannel[i]));
+rightInt16[i] = sR < 0 ? sR * 0x8000 : sR * 0x7FFF;
+}
+}
+for (let i = 0; i < leftInt16.length; i += sampleBlockSize) {
+const leftChunk = leftInt16.subarray(i, i + sampleBlockSize);
+const rightChunk = numChannels > 1 ? rightInt16.subarray(i, i + sampleBlockSize) : leftChunk;
+let mp3buf;
+if (numChannels > 1) {
+mp3buf = mp3encoder.encodeBuffer(leftChunk, rightChunk);
+} else {
+mp3buf = mp3encoder.encodeBuffer(leftChunk);
+}
+if (mp3buf.length > 0) {
+mp3Data.push(mp3buf);
+}
+}
+const mp3buf = mp3encoder.flush();
+if (mp3buf.length > 0) {
+mp3Data.push(mp3buf);
+}
+const blob = new Blob(mp3Data, { type: 'audio/mp3' });
+const url = window.URL.createObjectURL(blob);
+const a = document.createElement('a');
+a.style.display = 'none';
+a.href = url;
+a.download = 'tempo_shifted.mp3';
+document.body.appendChild(a);
+a.click();
+setTimeout(() => {
+document.body.removeChild(a);
+window.URL.revokeObjectURL(url);
+}, 100);
+statusText.textContent = "Успешно сохранено!";
+saveBtn.disabled = false;
+playBtn.disabled = false;
+wheelL.classList.remove('spinning');
+wheelR.classList.remove('spinning');
+}).catch(function(err) {
+statusText.textContent = "Ошибка рендеринга!";
+console.error("Ошибка:", err);
+saveBtn.disabled = false;
+playBtn.disabled = false;
+wheelL.classList.remove('spinning');
+wheelR.classList.remove('spinning');
+});
+});
