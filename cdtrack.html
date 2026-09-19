@@ -3,124 +3,248 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modern Audio Tempo Shifter</title>
-    <!-- Подключаем библиотеку lamejs для кодирования в MP3 -->
+    <title>Win95 Audio Tempo Shifter (Evangelion MAGI Terminal)</title>
     <script src="https://cloudflare.com"></script>
     <style>
         :root {
-            --bg-color: #0d0e12;
-            --panel-color: #161820;
-            --accent-color: #00ffaa;
-            --text-color: #ffffff;
-            --text-muted: #8a8f98;
-            --slider-bg: #2a2d3a;
+            --win-bg: #1a0e08; 
+            --eva-orange: #ff6600;
+            --eva-light-orange: #ffaa66;
+            --face: #d4d0c8;
+            --shadow: #808080;
+            --highlight: #ffffff;
+            --dark-shadow: #404040;
         }
 
         *, *::before, *::after {
             box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 0;
+            font-family: "MS Sans Serif", "Tahoma", Arial, sans-serif;
+            font-size: 12px;
         }
 
         body {
-            background-color: var(--bg-color);
-            color: var(--text-color);
+            background-color: var(--win-bg);
+            background-image: 
+                linear-gradient(rgba(255, 102, 0, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 102, 0, 0.03) 1px, transparent 1px);
+            background-size: 25px 25px;
+            margin: 0;
+            padding: 0;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            user-select: none;
+            position: relative;
+            overflow: hidden;
         }
 
-        /* Главный контейнер плеера */
-        .player-container {
-            background: var(--panel-color);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 16px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-            width: 380px;
-            padding: 24px;
+        /* CRT линии */
+        body::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.12) 50%);
+            z-index: 99999;
+            background-size: 100% 4px;
+            pointer-events: none;
         }
 
-        .header {
-            margin-bottom: 20px;
-            text-align: center;
+        /* Центральная сцена для проекции картинок */
+        .background-stage {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 4%;
+            z-index: 1;
+            pointer-events: none;
         }
 
-        .header h1 {
-            font-size: 16px;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            color: var(--text-muted);
+        /* Экраны-контейнеры для слайдшоу */
+        .eva-monitor-screen {
+            height: 80vh;
+            width: 33vw;
+            position: relative;
+            border: 1px solid rgba(255, 102, 0, 0.15);
+            background: rgba(10, 5, 2, 0.3);
+            overflow: hidden;
+        }
+
+        .left-monitor {
+            -webkit-mask-image: linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 25%, rgba(0,0,0,1) 85%, rgba(0,0,0,0) 100%);
+            mask-image: linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 25%, rgba(0,0,0,1) 85%, rgba(0,0,0,0) 100%);
+        }
+
+        .right-monitor {
+            -webkit-mask-image: linear-gradient(to left, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 25%, rgba(0,0,0,1) 85%, rgba(0,0,0,0) 100%);
+            mask-image: linear-gradient(to left, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 25%, rgba(0,0,0,1) 85%, rgba(0,0,0,0) 100%);
+        }
+
+        /* Слайды с мягким переключением через opacity */
+        .eva-slide {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
+            opacity: 0;
+            transition: opacity 1.2s ease-in-out;
+            filter: grayscale(25%) saturate(140%) contrast(105%) opacity(0.4);
+        }
+
+        .eva-slide.active {
+            opacity: 1;
+        }
+
+        /* Декоративная разметка MAGI поверх экранов */
+        .eva-monitor-screen::before {
+            content: "👁 SIGNAL RECEIVE // SYNC STATUS";
+            position: absolute;
+            top: 10px; left: 15px;
+            font-family: monospace;
+            color: var(--eva-orange);
+            font-size: 9px;
+            opacity: 0.5;
+        }
+
+        /* Информационные панели */
+        .eva-deco-left, .eva-deco-right {
+            position: absolute;
+            font-family: 'Courier New', monospace;
+            color: var(--eva-orange);
+            opacity: 0.8;
+            font-size: 11px;
             text-transform: uppercase;
+            pointer-events: none;
+            z-index: 2;
+            animation: textPulse 4s infinite ease-in-out;
+        }
+        .eva-deco-left { left: 30px; top: 30px; }
+        .eva-deco-right { right: 30px; bottom: 30px; text-align: right; }
+
+        @keyframes textPulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 0.9; text-shadow: 0 0 5px var(--eva-orange); }
         }
 
-        /* Информационный дисплей */
+        .eva-tag {
+            background: var(--eva-orange);
+            color: #000;
+            font-weight: bold;
+            padding: 2px 5px;
+            font-size: 10px;
+            display: inline-block;
+            margin-bottom: 5px;
+            box-shadow: 0 0 5px rgba(255, 102, 0, 0.4);
+        }
+
+        /* Окно плеера */
+        .window {
+            background: var(--face);
+            border-top: 2px solid var(--highlight);
+            border-left: 2px solid var(--highlight);
+            border-right: 2px solid var(--dark-shadow);
+            border-bottom: 2px solid var(--dark-shadow);
+            box-shadow: 1px 1px 0 0 #000, -1px -1px 0 0 var(--shadow) inset;
+            width: 400px;
+            padding: 3px;
+            z-index: 10;
+            position: relative;
+        }
+
+        .eva-border {
+            position: absolute;
+            top: -6px; left: -6px; right: -6px; bottom: -6px;
+            border: 1px solid var(--eva-orange);
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .title-bar {
+            background: linear-gradient(90deg, #b54500, var(--eva-orange));
+            color: white;
+            padding: 4px 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+        }
+
+        .window-body {
+            padding: 10px;
+        }
+
         .display {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 20px;
-            text-align: center;
-            border: 1px solid rgba(255, 255, 255, 0.03);
+            background: #120601;
+            color: var(--eva-orange);
+            font-family: 'Courier New', monospace;
+            padding: 10px;
+            border-top: 2px solid var(--shadow);
+            border-left: 2px solid var(--shadow);
+            border-right: 2px solid var(--highlight);
+            border-bottom: 2px solid var(--highlight);
+            margin-bottom: 12px;
+            text-shadow: 0 0 5px var(--eva-orange);
         }
 
         .status {
             font-size: 11px;
-            color: var(--accent-color);
+            margin-bottom: 4px;
             font-weight: bold;
-            text-transform: uppercase;
             letter-spacing: 1px;
-            margin-bottom: 6px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
         }
 
         .time {
-            font-size: 24px;
-            font-family: monospace;
-            font-weight: 500;
+            font-size: 20px;
+            font-weight: bold;
         }
 
-        /* Визуализатор (Вращающиеся диски) */
-        .visualizer-box {
-            display: flex;
-            justify-content: center;
-            gap: 30px;
-            margin-bottom: 24px;
-            background: rgba(0, 0, 0, 0.15);
-            padding: 12px;
-            border-radius: 12px;
-        }
-
-        .reel {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            border: 3px dashed var(--text-muted);
+        /* Анимация кассеты */
+        .cassette-box {
+            border: 2px solid var(--shadow);
+            background: #2a160c;
+            padding: 10px;
+            margin-bottom: 12px;
             display: flex;
             justify-content: center;
             align-items: center;
-            transition: border-color 0.3s;
         }
 
-        .reel::after {
+        .cassette {
+            width: 160px;
+            height: 45px;
+            background: #402010;
+            border: 2px solid #ffaa66;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            position: relative;
+        }
+
+        .wheel {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: #fff;
+            border: 3px dashed #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .wheel::after {
             content: "";
-            width: 10px;
-            height: 10px;
-            background: var(--text-muted);
+            width: 8px;
+            height: 8px;
+            background: #111;
             border-radius: 50%;
         }
 
         .spinning {
-            border-color: var(--accent-color);
-            animation: spin 3s infinite linear;
-        }
-
-        .spinning::after {
-            background: var(--accent-color);
+            animation: spin 2s infinite linear;
         }
 
         @keyframes spin {
@@ -128,230 +252,219 @@
             to { transform: rotate(360deg); }
         }
 
-        /* Элементы управления (Кнопки) */
-        .controls-row {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-
-        .btn {
-            flex: 1;
-            background: rgba(255, 255, 255, 0.05);
-            color: var(--text-color);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 12px;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.2s ease;
-        }
-
-        .btn:hover:not(:disabled) {
-            background: rgba(255, 255, 255, 0.1);
-            border-color: rgba(255, 255, 255, 0.2);
-        }
-
-        .btn:active:not(:disabled) {
-            transform: scale(0.98);
-        }
-
-        .btn-primary {
-            background: var(--accent-color);
-            color: var(--bg-color);
-            border: none;
-        }
-
-        .btn-primary:hover:not(:disabled) {
-            background: #00e699;
-            box-shadow: 0 0 15px rgba(0, 255, 170, 0.3);
-        }
-
-        .btn:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-        }
-
-        /* Слайдеры */
+        /* Строки со слайдерами */
         .field-row {
             display: flex;
             align-items: center;
-            margin-bottom: 16px;
-            gap: 12px;
+            margin-bottom: 10px;
         }
 
         .field-row label {
-            width: 65px;
-            font-size: 12px;
-            color: var(--text-muted);
-            font-weight: 500;
+            width: 55px;
+            font-weight: bold;
+            color: #222;
         }
 
         .slider-wrapper {
             flex-grow: 1;
-            display: flex;
-            align-items: center;
+            padding-right: 8px;
         }
 
-        input[type="range"] {
-            -webkit-appearance: none;
+        .slider-wrapper input[type="range"] {
             width: 100%;
-            height: 6px;
-            background: var(--slider-bg);
-            border-radius: 3px;
-            outline: none;
-        }
-
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: var(--accent-color);
-            cursor: pointer;
-            transition: transform 0.1s;
-        }
-
-        input[type="range"]::-webkit-slider-thumb:hover {
-            transform: scale(1.2);
+            margin: 0;
         }
 
         .val-display {
-            width: 45px;
+            width: 50px;
             text-align: right;
             font-family: monospace;
-            font-size: 13px;
-            color: var(--text-color);
+            font-weight: bold;
+            padding-right: 4px;
         }
 
-        .btn-sm {
-            background: transparent;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: var(--text-muted);
-            padding: 4px 8px;
-            border-radius: 4px;
+        .controls-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            gap: 5px;
+        }
+
+        .controls-row button, .controls-row label.win-btn-label {
+            flex: 1;
+        }
+
+        button.win-btn, label.win-btn-label {
+            background: var(--face);
+            border-top: 2px solid var(--highlight);
+            border-left: 2px solid var(--highlight);
+            border-right: 2px solid var(--dark-shadow);
+            border-bottom: 2px solid var(--dark-shadow);
+            box-shadow: 1px 1px 0 0 #000;
+            padding: 5px 10px;
             cursor: pointer;
-            font-size: 11px;
+            outline: none;
+            text-align: center;
+            font-weight: bold;
+            display: inline-block;
+            user-select: none;
         }
 
-        .btn-sm:hover {
-            color: var(--text-color);
-            border-color: rgba(255, 255, 255, 0.3);
+        button.win-btn:active:not(:disabled), label.win-btn-label:active {
+            border-top: 2px solid var(--dark-shadow);
+            border-left: 2px solid var(--dark-shadow);
+            border-right: 2px solid var(--highlight);
+            border-bottom: 2px solid var(--highlight);
+            box-shadow: 0 0 0 0 #000;
+            padding: 6px 9px 4px 11px;
         }
 
-        /* Секция сохранения */
-        .save-zone {
-            margin-top: 8px;
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
-            padding-top: 16px;
+        button.win-btn:disabled {
+            color: #888;
+            cursor: not-allowed;
+            border: 2px solid var(--shadow);
+            box-shadow: none;
         }
 
-        .save-zone .btn {
-            background: transparent;
-            border: 1px solid var(--accent-color);
-            color: var(--accent-color);
-        }
 
-        .save-zone .btn:hover:not(:disabled) {
-            background: rgba(0, 255, 170, 0.1);
-            box-shadow: 0 0 10px rgba(0, 255, 170, 0.1);
-        }
-    </style>
-</head>
-<body>
+.playlist-box {
+border-top: 2px solid var(--shadow);
+border-left: 2px solid var(--shadow);
+border-right: 2px solid var(--highlight);
+border-bottom: 2px solid var(--highlight);
+background: #fff;
+padding: 4px;
+min-height: 40px;
+margin-bottom: 12px;
+max-height: 80px;
+overflow-y: auto;
+}
+.playlist-title {
+font-size: 10px;
+font-weight: bold;
+color: var(--shadow);
+margin-bottom: 3px;
+text-transform: uppercase;
+}
+.track-item {
+padding: 2px 4px;
+background: #ff6600;
+color: #000;
+font-weight: bold;
+overflow: hidden;
+text-overflow: ellipsis;
+white-space: nowrap;
+}
+.save-zone {
+margin-top: 5px;
+}
+.save-zone button {
+width: 100%;
+background: #e2ded6;
+color: #b54500;
+}
 
-    <div class="player-container">
-        <div class="header">
-            <h1>Tempo Shifter Pro</h1>
-        </div>
-        
-        <!-- Дисплей -->
-        <div class="display">
-            <div class="status" id="status-text">Выберите аудиофайл</div>
-            <div class="time" id="time-text">00:00 / 00:00</div>
-        </div>
 
-        <!-- Визуальные диски -->
-        <div class="visualizer-box">
-            <div class="reel" id="wheel-l"></div>
-            <div class="reel" id="wheel-r"></div>
-        </div>
+NERV ONLY
 
-        <!-- Управление файлом и плеером -->
-        <div class="controls-row">
-            <label class="btn" style="flex: 1;">
-                Открыть...
-                <input type="file" id="file-input" accept="audio/*" style="display: none;">
-            </label>
-            <button class="btn btn-primary" id="play-btn" disabled>▶ Воспроизвести</button>
-        </div>
+MAGI-01: MELCHIOR
 
-        <!-- Настройка Скорости -->
-        <div class="field-row">
-            <label>Скорость</label>
-            <div class="slider-wrapper">
-                <input type="range" id="tempo-slider" min="0.5" max="2.0" step="0.05" value="1.0">
-            </div>
-            <div class="val-display" id="tempo-val">1.00x</div>
-            <button class="btn-sm" id="reset-btn">Сброс</button>
-        </div>
+SYNC RATE: 84.3%
 
-        <!-- Таймлайн Позиции -->
-        <div class="field-row">
-            <label>Позиция</label>
-            <div class="slider-wrapper">
-                <input type="range" id="pos-slider" min="0" max="100" value="0" disabled>
-            </div>
-            <div class="val-display" id="pos-text">00:00</div>
-        </div>
+A.T. FIELD: ACTIVE
+EMERGENCY
 
-        <!-- Кнопка Экспорта -->
-        <div class="save-zone">
-            <button class="btn" id="save-btn" disabled>💾 Сохранить трек в MP3</button>
-        </div>
-    </div>
+PATTERN BLUE
 
-    <script>
-        // Инициализация аудио-движка Web Audio API
-        let audioCtx = null;
-        let mainAudioBuffer = null;
-        let sourceNode = null;
-        
-        // Переменные состояния
-        let isPlaying = false;
-        let startTime = 0;
-        let pausedAt = 0;
-        let currentPlaybackRate = 1.0;
-        let updateInterval = null;
+SYS_STATUS: LINKED
+💿 CD-Track.exe [EVA-UNIT_01]
 
-        // Элементы DOM
-        const fileInput = document.getElementById('file-input');
-        const playBtn = document.getElementById('play-btn');
-        const saveBtn = document.getElementById('save-btn');
-        const tempoSlider = document.getElementById('tempo-slider');
-        const tempoVal = document.getElementById('tempo-val');
-        const resetBtn = document.getElementById('reset-btn');
-        const posSlider = document.getElementById('pos-slider');
-        const posText = document.getElementById('pos-text');
-        const statusText = document.getElementById('status-text');
-        const timeText = document.getElementById('time-text');
-        const wheelL = document.getElementById('wheel-l');
+READY TO LOAD...
+00:00 / 00:00
+⏸ Pause
+1.00x
 
+Reset
+
+00:00
+Playlist.exe:
+
+No file selected.
+💾 Save Modified MP3 (192k)
+// ИСПРАВЛЕНО: Относительные пути к картинкам (без лидирующего слэша), чтобы убрать ошибки 404 на GitHub Pages
+const pinImages = [
+'./pin_fightclub.jpg',
+'./pin_gosling.jpg',
+'./pin_donnie.jpg',
+'./pin_shinji.jpg',
+'./pin_the_end.jpg',
+'./pin_misatо.jpg'
+];
+// Инфраструктура слайдшоу для мониторов MAGI
+function setupMonitors() {
+const left = document.getElementById('left-monitor');
+const right = document.getElementById('right-monitor');
+pinImages.forEach((src, idx) => {
+const sL = document.createElement('div');
+sL.className = eva-slide slide-l-${idx};
+sL.style.backgroundImage = url('${src}');
+left.appendChild(sL);
+const sR = document.createElement('div');
+sR.className = eva-slide slide-r-${idx};
+sR.style.backgroundImage = url('${src}');
+right.appendChild(sR);
+});
+let currentIdx = 0;
+setInterval(() => {
+const slidesL = left.querySelectorAll('.eva-slide');
+const slidesR = right.querySelectorAll('.eva-slide');
+if(!slidesL.length) return;
+slidesL.forEach(s => s.classList.remove('active'));
+slidesR.forEach(s => s.classList.remove('active'));
+currentIdx = (currentIdx + 1) % slidesL.length;
+slidesL[currentIdx].classList.add('active');
+let rIdx = (currentIdx + 2) % slidesR.length;
+slidesR[rIdx].classList.add('active');
+}, 4000);
+}
+setupMonitors();
+// Аудио Движок
+let audioCtx = null;
+let mainAudioBuffer = null;
+let sourceNode = null;
+// Переменные состояния плеера
+let isPlaying = false;
+let startTime = 0;
+let pausedAt = 0;
+let currentPlaybackRate = 1.0;
+let updateInterval = null;
+// DOM элементы управления
+const fileInput = document.getElementById('file-input');
+const playBtn = document.getElementById('play-btn');
+const saveBtn = document.getElementById('save-btn');
+const tempoSlider = document.getElementById('tempo-slider');
+const tempoVal = document.getElementById('tempo-val');
+const resetBtn = document.getElementById('reset-btn');
+const posSlider = document.getElementById('pos-slider');
+const posText = document.getElementById('pos-text');
+const statusText = document.getElementById('status-text');
+const timeText = document.getElementById('time-text');
+const playlistBox = document.getElementById('playlist-box');
+const wheelL = document.getElementById('wheel-l');
 const wheelR = document.getElementById('wheel-r');
+// Инициализация AudioContext по первому же взаимодействию пользователя
 function initAudioContext() {
 if (!audioCtx) {
 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 }
 }
+// Вспомогательная функция красивого форматирования секунд в MM:SS
 function formatTime(sec) {
 const m = Math.floor(sec / 60).toString().padStart(2, '0');
 const s = Math.floor(sec % 60).toString().padStart(2, '0');
 return ${m}:${s};
 }
+// Обновление таймингов дисплея и положения ползунка прогресса
 function updateDisplay() {
 if (!mainAudioBuffer) return;
 let currentPos = pausedAt;
@@ -366,36 +479,37 @@ posSlider.value = currentPos;
 posText.textContent = formatTime(currentPos);
 timeText.textContent = ${formatTime(currentPos)} / ${formatTime(mainAudioBuffer.duration)};
 }
-// Загрузка и декодирование выбранного аудио
+// Обработка выбора аудио-файла пользователем
 fileInput.addEventListener('change', (e) => {
-const files = e.target.files;
-if (!files || files.length === 0) return;
-const file = files[0]; // ИСПРАВЛЕНО: Явно берем первый файл из массива
+const file = e.target.files[0];
+if (!file) return;
 initAudioContext();
-statusText.textContent = "Загрузка файла...";
+statusText.textContent = "LOADING AUDIO BUFFERS...";
 playBtn.disabled = true;
 saveBtn.disabled = true;
+playlistBox.innerHTML = <div class="track-item">${file.name.toUpperCase()}</div>;
 const reader = new FileReader();
 reader.onload = function(evt) {
 audioCtx.decodeAudioData(evt.target.result, function(buffer) {
 mainAudioBuffer = buffer;
-statusText.textContent = file.name;
+statusText.textContent = "DECODE SUCCESS // READY";
 posSlider.disabled = false;
 posSlider.max = buffer.duration;
 posSlider.value = 0;
 pausedAt = 0;
 isPlaying = false;
-playBtn.textContent = "▶ Воспроизвести";
+playBtn.textContent = "▶ Play";
 playBtn.disabled = false;
 saveBtn.disabled = false;
 updateDisplay();
 }, function(err) {
-statusText.textContent = "Ошибка чтения аудио!";
+statusText.textContent = "DECODE ERROR!";
 console.error(err);
 });
 };
 reader.readAsArrayBuffer(file);
 });
+// Запуск воспроизведения с конкретной временной метки
 function playTrack(offset) {
 if (!mainAudioBuffer) return;
 initAudioContext();
@@ -405,15 +519,17 @@ sourceNode.playbackRate.value = currentPlaybackRate;
 sourceNode.connect(audioCtx.destination);
 startTime = audioCtx.currentTime;
 pausedAt = offset;
+// Защита от перегрузки рейта смещения
 sourceNode.start(0, offset);
 isPlaying = true;
-playBtn.textContent = "⏸ Пауза";
-statusText.textContent = "Воспроизведение...";
+playBtn.textContent = "⏸ Pause";
+statusText.textContent = "PLAYBACK ACTIVE";
 wheelL.classList.add('spinning');
 wheelR.classList.add('spinning');
 clearInterval(updateInterval);
 updateInterval = setInterval(updateDisplay, 250);
 }
+// Постановка воспроизведения на паузу
 function pauseTrack() {
 if (!isPlaying) return;
 isPlaying = false;
@@ -423,12 +539,13 @@ if (sourceNode) {
 sourceNode.stop();
 sourceNode.disconnect();
 }
-playBtn.textContent = "▶ Воспроизвести";
-statusText.textContent = "На паузе";
+playBtn.textContent = "▶ Play";
+statusText.textContent = "PAUSED";
 wheelL.classList.remove('spinning');
 wheelR.classList.remove('spinning');
 updateDisplay();
 }
+// Полная остановка трека при завершении
 function stopTrack() {
 isPlaying = false;
 clearInterval(updateInterval);
@@ -437,12 +554,13 @@ if (sourceNode) {
 try { sourceNode.stop(); } catch(e){}
 sourceNode.disconnect();
 }
-playBtn.textContent = "▶ Воспроизвести";
-statusText.textContent = "Готово";
+playBtn.textContent = "▶ Play";
+statusText.textContent = "TRACK COMPLETED";
 wheelL.classList.remove('spinning');
 wheelR.classList.remove('spinning');
 updateDisplay();
 }
+// Поведение кнопки Play/Pause
 playBtn.addEventListener('click', () => {
 if (isPlaying) {
 pauseTrack();
@@ -450,17 +568,20 @@ pauseTrack();
 playTrack(pausedAt);
 }
 });
+// Логика изменения темпа через слайдер
 tempoSlider.addEventListener('input', (e) => {
 const val = parseFloat(e.target.value);
 currentPlaybackRate = val;
 tempoVal.textContent = val.toFixed(2) + 'x';
 if (isPlaying) {
+// Чтобы динамически менять рейт без заиканий, высчитываем текущую точку и перезапускаем ноду
 let elapsed = (audioCtx.currentTime - startTime) * sourceNode.playbackRate.value;
 pauseTrack();
 pausedAt = pausedAt + elapsed;
 playTrack(pausedAt);
 }
 });
+// Кнопка сброса скорости
 resetBtn.addEventListener('click', () => {
 tempoSlider.value = 1.0;
 currentPlaybackRate = 1.0;
@@ -472,6 +593,7 @@ pausedAt = pausedAt + elapsed;
 playTrack(pausedAt);
 }
 });
+// Перемотка трека ползунком прогресса барa
 posSlider.addEventListener('input', (e) => {
 const targetPos = parseFloat(e.target.value);
 if (isPlaying) {
@@ -484,40 +606,51 @@ updateDisplay();
 }
 });
 // ==========================================
-// АЛГОРИТМ ОФФЛАЙН-РЕНДЕРИНГА (MP3)
+// ИСПРАВЛЕНО: Алгоритм Отрендерить & Сохранить как MP3
 // ==========================================
 saveBtn.addEventListener('click', () => {
 if (!mainAudioBuffer) return;
-statusText.textContent = "Экспорт MP3...";
+const oldStatus = statusText.textContent;
+statusText.textContent = "RENDERING MP3...";
 saveBtn.disabled = true;
 playBtn.disabled = true;
+// Запускаем вращение кассеты на время рендеринга для анимации
 wheelL.classList.add('spinning');
 wheelR.classList.add('spinning');
 const sampleRate = mainAudioBuffer.sampleRate;
 const duration = mainAudioBuffer.duration;
+// Рассчитываем итоговую длину трека с учетом изменения скорости
 const targetDuration = duration / currentPlaybackRate;
+// Инициализируем контекст оффлайн-рендеринга под измененную скорость
 const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(
 mainAudioBuffer.numberOfChannels,
 sampleRate * targetDuration,
 sampleRate
 );
+// Создаем виртуальную ноду буфера
 const bufferSource = offlineCtx.createBufferSource();
 bufferSource.buffer = mainAudioBuffer;
-bufferSource.playbackRate.value = currentPlaybackRate;
+bufferSource.playbackRate.value = currentPlaybackRate; // накладываем измененный темп
 bufferSource.connect(offlineCtx.destination);
 bufferSource.start(0);
+// Начинаем математический рендеринг звуковой волны в памяти браузера
 offlineCtx.startRendering().then(function(renderedBuffer) {
+// ИСПРАВЛЕНИЕ: Читаем реальное число аудиоканалов в буфере
 const numChannels = renderedBuffer.numberOfChannels;
+// Извлекаем данные левого аудиоканала (он гарантированно существует всегда)
 const leftChannel = renderedBuffer.getChannelData(0);
-// Фикс для моно-файлов (дублируем каналы, если он один)
+// ИСПРАВЛЕНИЕ: Если трек стерео — берем правый канал, если моно — дублируем ссылку на левый!
+// Это защищает lamejs от чтения undefined на монофонических файлах.
 const rightChannel = numChannels > 1 ? renderedBuffer.getChannelData(1) : leftChannel;
-// Передаем динамическое число каналов в lamejs
+// ИСПРАВЛЕНИЕ: Передаем кодировщику строго реальное количество каналов: numChannels > 1 ? 2 : 1
 const mp3encoder = new lamejs.Mp3Encoder(numChannels > 1 ? 2 : 1, sampleRate, 192);
 const mp3Data = [];
-const sampleBlockSize = 1152;
+const sampleBlockSize = 1152; // Оптимальный размер блока обработки фрейма MP3
+// Конвертируем Float32 данные из браузерного буфера в понятный lamejs Int16 битрейт
 const leftInt16 = new Int16Array(leftChannel.length);
 const rightInt16 = numChannels > 1 ? new Int16Array(rightChannel.length) : null;
 for (let i = 0; i < leftChannel.length; i++) {
+// Нормализация аудиопотока и защита от клиппинга звука
 let sL = Math.max(-1, Math.min(1, leftChannel[i]));
 leftInt16[i] = sL < 0 ? sL * 0x8000 : sL * 0x7FFF;
 if (numChannels > 1) {
@@ -525,6 +658,7 @@ let sR = Math.max(-1, Math.min(1, rightChannel[i]));
 rightInt16[i] = sR < 0 ? sR * 0x8000 : sR * 0x7FFF;
 }
 }
+// Порционное кодирование звука блоками
 for (let i = 0; i < leftInt16.length; i += sampleBlockSize) {
 const leftChunk = leftInt16.subarray(i, i + sampleBlockSize);
 const rightChunk = numChannels > 1 ? rightInt16.subarray(i, i + sampleBlockSize) : leftChunk;
@@ -538,30 +672,35 @@ if (mp3buf.length > 0) {
 mp3Data.push(mp3buf);
 }
 }
+// Сбрасываем и закрываем внутренний буфер кодировщика
 const mp3buf = mp3encoder.flush();
 if (mp3buf.length > 0) {
 mp3Data.push(mp3buf);
 }
+// Формируем готовый MP3 файл в Blob объект
 const blob = new Blob(mp3Data, { type: 'audio/mp3' });
 const url = window.URL.createObjectURL(blob);
+// Программная генерация триггера загрузки файла для пользователя
 const a = document.createElement('a');
 a.style.display = 'none';
 a.href = url;
-a.download = 'tempo_shifted.mp3';
+a.download = 'tempo_shifted_track.mp3';
 document.body.appendChild(a);
 a.click();
+// Очистка памяти линков
 setTimeout(() => {
 document.body.removeChild(a);
 window.URL.revokeObjectURL(url);
 }, 100);
-statusText.textContent = "Успешно сохранено!";
+// Возвращаем интерфейс в рабочее состояние
+statusText.textContent = "RENDER COMPLETED!";
 saveBtn.disabled = false;
 playBtn.disabled = false;
 wheelL.classList.remove('spinning');
 wheelR.classList.remove('spinning');
 }).catch(function(err) {
-statusText.textContent = "Ошибка рендеринга!";
-console.error("Ошибка:", err);
+statusText.textContent = "RENDER CRITICAL ERROR!";
+console.error("Ошибка во время оффлайн-сборки аудио:", err);
 saveBtn.disabled = false;
 playBtn.disabled = false;
 wheelL.classList.remove('spinning');
